@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "allowJs": true,
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "outDir": "./dist-electron",
+    "rootDir": "./electron",
+    "types": ["node", "vite/client"]
+  },
+  "include": ["electron/**/*"],
+  "exclude": ["node_modules", "dist", "dist-electron", "ui", "electron/preload.ts"]
+}
+

@@ -1,0 +1,72 @@
+{
+  "name": "network-sniffer",
+  "version": "1.0.0",
+  "description": "Network Sniffer - Desktop app for inspecting server-side HTTP events",
+  "main": "dist-electron/main.js",
+  "type": "module",
+  "scripts": {
+    "dev": "tsc && tsc -p tsconfig.preload.json && concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
+    "build": "tsc && tsc -p tsconfig.preload.json && vite build",
+    "dist": "yarn build && electron-builder",
+    "postinstall": "electron-builder install-app-deps",
+    "test:emit": "tsx scripts/post-sample-event.ts"
+  },
+  "keywords": [
+    "electron",
+    "network",
+    "sniffer",
+    "http"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "better-sqlite3": "^11.7.0",
+    "cors": "^2.8.5",
+    "express": "^4.21.1"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.10.2",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "concurrently": "^9.1.2",
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.1",
+    "wait-on": "^8.0.1"
+  },
+  "build": {
+    "appId": "com.networksniffer.app",
+    "productName": "Network Sniffer",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "assets/icons/**/*",
+      "node_modules/**/*"
+    ],
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "target": "dmg",
+      "icon": "assets/icons/icon.icns"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icons/icon.ico"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "assets/icons/icon.png"
+    }
+  },
+  "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
+}

@@ -1,0 +1,16 @@
+node_modules/
+dist/
+dist-electron/
+release/
+*.log
+.DS_Store
+*.db
+*.db-journal
+.vscode/
+.idea/
+
+# Keep generated icons (they're needed for builds)
+# assets/icons/*.png
+# assets/icons/*.icns
+# assets/icons/*.ico
+

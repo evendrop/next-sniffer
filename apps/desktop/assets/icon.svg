@@ -1,0 +1,24 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background circle -->
+  <circle cx="256" cy="256" r="240" fill="#4A90E2" stroke="#2E5C8A" stroke-width="8"/>
+  
+  <!-- Network nodes -->
+  <circle cx="180" cy="180" r="20" fill="#FFFFFF"/>
+  <circle cx="332" cy="180" r="20" fill="#FFFFFF"/>
+  <circle cx="180" cy="332" r="20" fill="#FFFFFF"/>
+  <circle cx="332" cy="332" r="20" fill="#FFFFFF"/>
+  <circle cx="256" cy="256" r="30" fill="#FFD700"/>
+  
+  <!-- Connection lines -->
+  <line x1="180" y1="180" x2="256" y2="256" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round"/>
+  <line x1="332" y1="180" x2="256" y2="256" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round"/>
+  <line x1="180" y1="332" x2="256" y2="256" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round"/>
+  <line x1="332" y1="332" x2="256" y2="256" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round"/>
+  
+  <!-- Activity indicator (pulse effect) -->
+  <circle cx="256" cy="256" r="40" fill="none" stroke="#FFFFFF" stroke-width="3" opacity="0.5">
+    <animate attributeName="r" values="30;50;30" dur="2s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0.5;0;0.5" dur="2s" repeatCount="indefinite"/>
+  </circle>
+</svg>
+
