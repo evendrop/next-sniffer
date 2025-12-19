@@ -1,4 +1,4 @@
-# Network Sniffer
+# NextJS Sniffer
 
 A desktop application for inspecting server-side HTTP events from Next.js backends. The app runs a local HTTP server that receives events from your Next.js application and provides a DevTools-like interface to filter, search, and inspect each request/response.
 
@@ -65,7 +65,7 @@ The packaged app will be in the `release/` directory.
 
 ### Posting Events from Next.js
 
-In your Next.js backend, configure axios interceptors to POST events to the Network Sniffer:
+In your Next.js backend, configure axios interceptors to POST events to the NextJS Sniffer:
 
 ```typescript
 import axios from 'axios';

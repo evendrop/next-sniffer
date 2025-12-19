@@ -2,7 +2,7 @@
 /// <reference types="node" />
 
 /**
- * Post a curl command as an event to Network Sniffer
+ * Post a curl command as an event to NextJS Sniffer
  * Usage: tsx scripts/post-curl-event.ts
  */
 

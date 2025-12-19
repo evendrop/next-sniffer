@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Post events from a real curl command execution to Network Sniffer
+ * Post events from a real curl command execution to NextJS Sniffer
  */
 
 const API_BASE = 'http://127.0.0.1:9432';
@@ -93,7 +93,7 @@ async function main() {
   console.log('Posting response event...');
   const resResult = await postEvent(responseEvent);
   console.log('✓ Response event posted:', resResult.id);
-  console.log('\nBoth events should now appear in Network Sniffer!');
+  console.log('\nBoth events should now appear in NextJS Sniffer!');
 }
 
 main().catch((error) => {

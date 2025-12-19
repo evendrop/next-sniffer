@@ -12,6 +12,11 @@ interface ElectronAPI {
   getSettings: () => Promise<AppSettings>;
   updateSettings: (settings: Partial<AppSettings>) => Promise<AppSettings>;
   clearErrorBadge: () => Promise<{ success: boolean }>;
+  checkForUpdates: () => Promise<{ success: boolean; message?: string }>;
+  downloadUpdate: () => Promise<{ success: boolean; message?: string }>;
+  installUpdate: () => Promise<{ success: boolean; message?: string }>;
+  getAppVersion: () => Promise<string>;
+  onUpdateStatus: (callback: (status: any) => void) => void;
 }
 
 interface Window {

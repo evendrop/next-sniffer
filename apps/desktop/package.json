@@ -1,7 +1,7 @@
 {
   "name": "network-sniffer",
   "version": "1.0.0",
-  "description": "Network Sniffer - Desktop app for inspecting server-side HTTP events",
+  "description": "NextJS Sniffer - Desktop app for inspecting server-side HTTP events",
   "main": "dist-electron/main.js",
   "type": "module",
   "scripts": {
@@ -10,7 +10,8 @@
     "dist": "yarn build && electron-builder",
     "postinstall": "electron-builder install-app-deps",
     "test:emit": "tsx scripts/post-sample-event.ts",
-    "test:error": "tsx scripts/post-error-event.ts"
+    "test:error": "tsx scripts/post-error-event.ts",
+    "kill-ports": "lsof -ti:5173,5174 | xargs kill -9 2>/dev/null || true"
   },
   "keywords": [
     "electron",
@@ -24,6 +25,7 @@
     "@tabler/icons-react": "^3.36.0",
     "better-sqlite3": "^11.7.0",
     "cors": "^2.8.5",
+    "electron-updater": "^6.6.2",
     "express": "^4.21.1"
   },
   "devDependencies": {
@@ -46,7 +48,7 @@
   },
   "build": {
     "appId": "com.networksniffer.app",
-    "productName": "Network Sniffer",
+    "productName": "NextJS Sniffer",
     "directories": {
       "output": "release"
     },
@@ -56,6 +58,11 @@
       "assets/icons/**/*",
       "node_modules/**/*"
     ],
+    "publish": {
+      "provider": "github",
+      "owner": "evendrop",
+      "repo": "next-sniffer"
+    },
     "mac": {
       "category": "public.app-category.developer-tools",
       "target": "dmg",

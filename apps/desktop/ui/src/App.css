@@ -118,11 +118,23 @@ body {
   min-height: 48px;
 }
 
+.app-header > div:first-child {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
 .app-header h1 {
   font-size: 18px;
   font-weight: 600;
   color: var(--text-primary);
   letter-spacing: -0.3px;
+}
+
+.app-version {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  font-weight: 400;
 }
 
 .app-header-actions {

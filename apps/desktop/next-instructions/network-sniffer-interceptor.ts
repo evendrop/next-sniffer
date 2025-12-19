@@ -1,7 +1,7 @@
 /**
- * Network Sniffer Interceptor for Next.js
+ * NextJS Sniffer Interceptor for Next.js
  *
- * This file automatically logs all axios requests/responses to the Network Sniffer desktop app.
+ * This file automatically logs all axios requests/responses to the NextJS Sniffer desktop app.
  *
  * Usage:
  * 1. Import this file in your server-api.ts (or wherever you initialize axios)
@@ -35,7 +35,7 @@ function generateId(): string {
 }
 
 /**
- * Send event to Network Sniffer (fire and forget - don't block requests)
+ * Send event to NextJS Sniffer (fire and forget - don't block requests)
  */
 async function sendEvent(event: any): Promise<void> {
     if (!ENABLED || !NETWORK_SNIFFER_URL) return;
@@ -48,7 +48,7 @@ async function sendEvent(event: any): Promise<void> {
             },
             body: JSON.stringify(event)
         }).catch(() => {
-            // Silently fail - Network Sniffer might not be running
+            // Silently fail - NextJS Sniffer might not be running
             // This prevents errors from affecting the actual API calls
         });
     } catch (error) {
@@ -111,7 +111,7 @@ function buildUrl(config: InternalAxiosRequestConfig): string {
 }
 
 /**
- * Setup Network Sniffer interceptors on an axios instance
+ * Setup NextJS Sniffer interceptors on an axios instance
  * @param axiosInstance - The axios instance to monitor
  * @param options - Optional configuration
  */
@@ -267,5 +267,5 @@ export function setupNetworkSniffer(
         }
     );
 
-    console.log('[Network Sniffer] Interceptor enabled - logging to', NETWORK_SNIFFER_URL);
+    console.log('[NextJS Sniffer] Interceptor enabled - logging to', NETWORK_SNIFFER_URL);
 }

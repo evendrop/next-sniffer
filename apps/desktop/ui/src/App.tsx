@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { IconTerminal, IconBellOff } from '@tabler/icons-react';
+import { IconTerminal, IconBellOff, IconDownload, IconRefresh } from '@tabler/icons-react';
 import { Event, EventFilters } from './lib/types';
 import { fetchEvents, clearEvents, createEventStream } from './lib/api';
 import { EventTable } from './components/EventTable';
@@ -35,6 +35,13 @@ function App() {
     'time', 'phase', 'method', 'host', 'path', 'status', 'duration', 'service', 'error'
   ]);
   const [errorNotifications, setErrorNotifications] = useState(true);
+  const [appVersion, setAppVersion] = useState<string>('');
+  const [updateStatus, setUpdateStatus] = useState<{
+    status: string;
+    version?: string;
+    progress?: number;
+    message?: string;
+  } | null>(null);
 
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
     setToast({ message, type });
@@ -58,11 +65,18 @@ function App() {
     loadEvents();
   }, [loadEvents]);
 
-  // Load settings on mount
+  // Load settings and app version on mount
   useEffect(() => {
     if (window.electronAPI) {
       window.electronAPI.getSettings().then((settings) => {
         setErrorNotifications(settings.errorNotifications);
+      });
+      window.electronAPI.getAppVersion().then((version) => {
+        setAppVersion(version);
+      });
+      // Listen for update status
+      window.electronAPI.onUpdateStatus((status: any) => {
+        setUpdateStatus(status);
       });
     }
   }, []);
@@ -177,6 +191,37 @@ function App() {
     }
   };
 
+  const handleCheckForUpdates = async () => {
+    if (window.electronAPI) {
+      const result = await window.electronAPI.checkForUpdates();
+      if (!result.success) {
+        showToast(result.message || 'Failed to check for updates', 'error');
+      }
+    }
+  };
+
+  const handleDownloadUpdate = async () => {
+    if (window.electronAPI) {
+      const result = await window.electronAPI.downloadUpdate();
+      if (result.success) {
+        showToast('Downloading update...', 'info');
+      } else {
+        showToast(result.message || 'Failed to download update', 'error');
+      }
+    }
+  };
+
+  const handleInstallUpdate = async () => {
+    if (window.electronAPI) {
+      const result = await window.electronAPI.installUpdate();
+      if (result.success) {
+        showToast('Installing update and restarting...', 'info');
+      } else {
+        showToast(result.message || 'Failed to install update', 'error');
+      }
+    }
+  };
+
   if (serverError) {
     return (
       <div className="app-error">
@@ -190,8 +235,53 @@ function App() {
   return (
     <div className="app">
       <div className="app-header">
-        <h1>Network Sniffer</h1>
+        <div>
+          <h1>NextJS Sniffer</h1>
+          {appVersion && (
+            <span className="app-version">v{appVersion}</span>
+          )}
+        </div>
         <div className="app-header-actions">
+          {updateStatus && updateStatus.status === 'available' && (
+            <button
+              onClick={handleDownloadUpdate}
+              className="btn btn-secondary"
+              title="Download Update"
+            >
+              <IconDownload size={16} />
+              Update Available
+            </button>
+          )}
+          {updateStatus && updateStatus.status === 'downloading' && (
+            <button
+              className="btn btn-secondary"
+              disabled
+              title="Downloading Update"
+            >
+              <IconDownload size={16} />
+              Downloading {updateStatus.progress}%
+            </button>
+          )}
+          {updateStatus && updateStatus.status === 'downloaded' && (
+            <button
+              onClick={handleInstallUpdate}
+              className="btn btn-primary"
+              title="Install and Restart"
+            >
+              <IconRefresh size={16} />
+              Install Update
+            </button>
+          )}
+          {(!updateStatus || (updateStatus.status !== 'available' && updateStatus.status !== 'downloading' && updateStatus.status !== 'downloaded')) && (
+            <button
+              onClick={handleCheckForUpdates}
+              className="btn btn-secondary"
+              title="Check for Updates"
+            >
+              <IconRefresh size={16} />
+              Check Updates
+            </button>
+          )}
           <label className="live-updates-toggle">
             <input
               type="checkbox"

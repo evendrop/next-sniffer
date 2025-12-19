@@ -1,4 +1,4 @@
-# Network Sniffer Integration Guide
+# NextJS Sniffer Integration Guide
 
 ## Quick Setup
 
@@ -36,7 +36,7 @@ serverApiClient.interceptors.response.use(
 );
 ```
 
-That's it! All requests/responses will now be logged to the Network Sniffer app.
+That's it! All requests/responses will now be logged to the NextJS Sniffer app.
 
 ## Optional Configuration
 
@@ -65,7 +65,7 @@ setupNetworkSniffer(serverApiClient, {
 - ✅ Generates trace/request IDs for request correlation
 - ✅ Fire-and-forget (won't slow down or break your API calls)
 - ✅ Works alongside existing interceptors
-- ✅ Zero impact if Network Sniffer app isn't running
+- ✅ Zero impact if NextJS Sniffer app isn't running
 
 ## What Gets Logged
 
@@ -73,7 +73,7 @@ setupNetworkSniffer(serverApiClient, {
 - **Response phase**: Status code, response headers, response body, duration
 - **Error phase**: Error message, status code (if available), duration
 
-All events are automatically sent to the Network Sniffer desktop app where you can:
+All events are automatically sent to the NextJS Sniffer desktop app where you can:
 - Filter by method, status, host, time range
 - Search by URL or error message
 - View full request/response details

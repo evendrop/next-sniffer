@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Test script to post a single error event to the Network Sniffer ingestion server
+ * Test script to post a single error event to the NextJS Sniffer ingestion server
  * Usage: npx tsx scripts/post-error-event.ts
  */
 
@@ -70,13 +70,13 @@ async function checkHealth() {
     return true;
   } catch (error: any) {
     console.error(`✗ Server health check failed: ${error.message}`);
-    console.error('Make sure the Network Sniffer app is running!');
+    console.error('Make sure the NextJS Sniffer app is running!');
     return false;
   }
 }
 
 async function main() {
-  console.log('Network Sniffer - Error Event Test\n');
+  console.log('NextJS Sniffer - Error Event Test\n');
   console.log(`Target: ${API_BASE}\n`);
 
   const isHealthy = await checkHealth();

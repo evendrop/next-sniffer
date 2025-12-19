@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Test script to post sample events to the Network Sniffer ingestion server
+ * Test script to post sample events to the NextJS Sniffer ingestion server
  * Usage: npx tsx scripts/post-sample-event.ts
  */
 
@@ -194,13 +194,13 @@ async function checkHealth() {
     return true;
   } catch (error: any) {
     console.error(`✗ Server health check failed: ${error.message}`);
-    console.error('Make sure the Network Sniffer app is running!');
+    console.error('Make sure the NextJS Sniffer app is running!');
     return false;
   }
 }
 
 async function main() {
-  console.log('Network Sniffer - Sample Event Emitter\n');
+  console.log('NextJS Sniffer - Sample Event Emitter\n');
   console.log(`Target: ${API_BASE}\n`);
 
   const isHealthy = await checkHealth();
@@ -217,7 +217,7 @@ async function main() {
   }
 
   console.log(`\n✓ Successfully posted ${sampleEvents.length} events!`);
-  console.log('Check the Network Sniffer app to see the events.');
+  console.log('Check the NextJS Sniffer app to see the events.');
 }
 
 main().catch((error) => {

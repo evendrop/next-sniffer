@@ -1,4 +1,6 @@
-import { app, BrowserWindow, ipcMain, dialog, screen } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, screen, nativeImage } from 'electron';
+import pkg from 'electron-updater';
+const { autoUpdater } = pkg;
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
@@ -17,12 +19,12 @@ const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
 // Set app name early (before whenReady) - this affects the dock name on macOS
 // Note: In dev mode on macOS, the dock may still show "Electron" because Electron
 // runs from its own bundle. The icon should work though.
-app.setName('Network Sniffer');
+app.setName('NextJS Sniffer');
 
 // For macOS, also try to set the about panel which can help with the name
 if (process.platform === 'darwin') {
   app.setAboutPanelOptions({
-    applicationName: 'Network Sniffer',
+    applicationName: 'NextJS Sniffer',
     applicationVersion: app.getVersion(),
   });
   
@@ -200,16 +202,16 @@ function createWindow() {
     // In dev: __dirname is dist-electron/electron, so:
     // - Try dist-electron/assets/icons (if copied by build script)
     // - Fallback to project root (apps/desktop/assets/icons)
-    const distAssetsPath = path.join(__dirname, '../assets/icons/icon.icns');
-    const projectRootPath = path.join(__dirname, '../../assets/icons/icon.icns');
+    const distAssetsPath = path.resolve(__dirname, '../assets/icons/icon.icns');
+    const projectRootPath = path.resolve(__dirname, '../../assets/icons/icon.icns');
     
     if (existsSync(distAssetsPath)) {
       icnsPath = distAssetsPath;
-      iconPath = path.join(__dirname, '../assets/icons/icon.png');
+      iconPath = path.resolve(__dirname, '../assets/icons/icon.png');
       console.log('✓ Using icon from dist-electron/assets:', icnsPath);
     } else if (existsSync(projectRootPath)) {
       icnsPath = projectRootPath;
-      iconPath = path.join(__dirname, '../../assets/icons/icon.png');
+      iconPath = path.resolve(__dirname, '../../assets/icons/icon.png');
       console.log('✓ Using icon from project root:', icnsPath);
     } else {
       console.error('✗ Icon not found in either location:');
@@ -227,31 +229,63 @@ function createWindow() {
 
   // Set dock icon for macOS (must be .icns file)
   if (process.platform === 'darwin' && app.dock) {
-    if (icnsPath && existsSync(icnsPath)) {
-      try {
-        app.dock.setIcon(icnsPath);
-        console.log('✓ Dock icon set successfully from:', icnsPath);
-      } catch (error) {
-        console.error('Failed to set dock icon:', error);
+    const trySetIcon = (iconPath: string, silent = false) => {
+      if (!iconPath || !existsSync(iconPath)) {
+        return false;
       }
-    } else {
-      console.warn('⚠ Dock icon not found. Tried:', icnsPath);
-      // Try alternative paths
+      try {
+        // Try using nativeImage first, which is more reliable
+        const image = nativeImage.createFromPath(iconPath);
+        if (!image.isEmpty()) {
+          app.dock.setIcon(image);
+          if (!silent) {
+            console.log('✓ Dock icon set successfully from:', iconPath);
+          }
+          return true;
+        }
+        // Fallback to direct path
+        app.dock.setIcon(iconPath);
+        if (!silent) {
+          console.log('✓ Dock icon set successfully from:', iconPath);
+        }
+        return true;
+      } catch (error) {
+        // Only log error if not silent (to avoid spam)
+        if (!silent) {
+          console.warn('⚠ Could not set dock icon from:', iconPath);
+        }
+        return false;
+      }
+    };
+
+    // Try primary .icns path
+    let iconSet = trySetIcon(icnsPath);
+    
+    // If .icns fails, try PNG as fallback
+    if (!iconSet && iconPath && existsSync(iconPath)) {
+      iconSet = trySetIcon(iconPath, true);
+    }
+    
+    // Try alternative paths (silently to avoid spam)
+    if (!iconSet) {
       const altPaths = [
-        path.join(process.cwd(), 'assets/icons/icon.icns'),
-        path.join(__dirname, '../../assets/icons/icon.icns'),
+        path.resolve(process.cwd(), 'assets/icons/icon.icns'),
+        path.resolve(__dirname, '../../assets/icons/icon.icns'),
+        path.resolve(__dirname, '../assets/icons/icon.icns'),
+        path.resolve(process.cwd(), 'assets/icons/icon_512.png'),
+        path.resolve(__dirname, '../../assets/icons/icon_512.png'),
       ];
       for (const altPath of altPaths) {
-        if (existsSync(altPath)) {
-          try {
-            app.dock.setIcon(altPath);
-            console.log('✓ Dock icon set from alternative path:', altPath);
-            break;
-          } catch (error) {
-            console.error('Failed to set icon from:', altPath, error);
-          }
+        if (trySetIcon(altPath, true)) {
+          iconSet = true;
+          break;
         }
       }
+    }
+    
+    // If all attempts fail, just continue without custom icon (not critical)
+    if (!iconSet && isDev) {
+      console.log('ℹ Using default Electron icon (custom icon not available)');
     }
   }
 
@@ -273,7 +307,7 @@ function createWindow() {
     x: savedState?.x ?? defaultX,
     y: savedState?.y ?? defaultY,
     ...(iconPath ? { icon: iconPath } : {}),
-    title: 'Network Sniffer',
+    title: 'NextJS Sniffer',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -337,6 +371,7 @@ function createWindow() {
   });
 }
 
+
 app.whenReady().then(async () => {
   // Set database path before starting server
   const dbPath = getDbPathForApp();
@@ -344,6 +379,9 @@ app.whenReady().then(async () => {
 
   // Set up error notification callback
   setErrorNotifier(notifyErrorEvent);
+
+  // Set up auto-updater event handlers
+  setupAutoUpdater();
 
   try {
     server = await startServer();
@@ -436,5 +474,108 @@ ipcMain.handle('update-settings', (_, newSettings: Partial<AppSettings>) => {
 ipcMain.handle('clear-error-badge', () => {
   clearErrorCount();
   return { success: true };
+});
+
+// Auto-updater functions
+function setupAutoUpdater() {
+  if (isDev) {
+    // Disable auto-updater in dev mode
+    return;
+  }
+
+  autoUpdater.autoDownload = false; // Don't auto-download, let user choose
+  autoUpdater.autoInstallOnAppQuit = true; // Install on app quit if update is ready
+
+  // Check for updates on startup (after a short delay to let UI load)
+  setTimeout(() => {
+    autoUpdater.checkForUpdates();
+  }, 5000);
+
+  // Check for updates every 4 hours
+  setInterval(() => {
+    autoUpdater.checkForUpdates();
+  }, 4 * 60 * 60 * 1000);
+
+  autoUpdater.on('checking-for-update', () => {
+    console.log('Checking for updates...');
+    if (mainWindow) {
+      mainWindow.webContents.send('update-status', { status: 'checking' });
+    }
+  });
+
+  autoUpdater.on('update-available', (info: { version: string; releaseDate?: string }) => {
+    console.log('Update available:', info.version);
+    if (mainWindow) {
+      mainWindow.webContents.send('update-status', {
+        status: 'available',
+        version: info.version,
+        releaseDate: info.releaseDate,
+      });
+    }
+  });
+
+  autoUpdater.on('update-not-available', () => {
+    console.log('No updates available');
+    if (mainWindow) {
+      mainWindow.webContents.send('update-status', { status: 'not-available' });
+    }
+  });
+
+  autoUpdater.on('error', (error: Error) => {
+    console.error('Update error:', error);
+    if (mainWindow) {
+      mainWindow.webContents.send('update-status', {
+        status: 'error',
+        message: error.message,
+      });
+    }
+  });
+
+  autoUpdater.on('download-progress', (progress: { percent: number }) => {
+    if (mainWindow) {
+      mainWindow.webContents.send('update-status', {
+        status: 'downloading',
+        progress: Math.round(progress.percent),
+      });
+    }
+  });
+
+  autoUpdater.on('update-downloaded', (info: { version: string }) => {
+    console.log('Update downloaded:', info.version);
+    if (mainWindow) {
+      mainWindow.webContents.send('update-status', {
+        status: 'downloaded',
+        version: info.version,
+      });
+    }
+  });
+}
+
+ipcMain.handle('check-for-updates', () => {
+  if (isDev) {
+    return { success: false, message: 'Updates disabled in development mode' };
+  }
+  autoUpdater.checkForUpdates();
+  return { success: true };
+});
+
+ipcMain.handle('download-update', () => {
+  if (isDev) {
+    return { success: false, message: 'Updates disabled in development mode' };
+  }
+  autoUpdater.downloadUpdate();
+  return { success: true };
+});
+
+ipcMain.handle('install-update', () => {
+  if (isDev) {
+    return { success: false, message: 'Updates disabled in development mode' };
+  }
+  autoUpdater.quitAndInstall(false, true);
+  return { success: true };
+});
+
+ipcMain.handle('get-app-version', () => {
+  return app.getVersion();
 });
 
