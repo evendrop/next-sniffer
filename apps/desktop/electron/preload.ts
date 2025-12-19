@@ -6,5 +6,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onServerError: (callback: (error: any) => void) => {
     ipcRenderer.on('server-error', (_, error) => callback(error));
   },
+  toggleDevTools: () => ipcRenderer.invoke('toggle-devtools'),
+  getSettings: () => ipcRenderer.invoke('get-settings'),
+  updateSettings: (settings: any) => ipcRenderer.invoke('update-settings', settings),
+  clearErrorBadge: () => ipcRenderer.invoke('clear-error-badge'),
 });
 

@@ -5,9 +5,22 @@ interface EventTableProps {
   events: Event[];
   selectedEventId: number | null;
   onSelectEvent: (event: Event) => void;
+  visibleColumns: string[];
 }
 
-export function EventTable({ events, selectedEventId, onSelectEvent }: EventTableProps) {
+const COLUMN_DEFINITIONS = {
+  time: { label: 'Time', key: 'time' },
+  phase: { label: 'Phase', key: 'phase' },
+  method: { label: 'Method', key: 'method' },
+  host: { label: 'Host', key: 'host' },
+  path: { label: 'Path', key: 'path' },
+  status: { label: 'Status', key: 'status' },
+  duration: { label: 'Duration', key: 'duration' },
+  service: { label: 'Service', key: 'service' },
+  error: { label: 'Error', key: 'error' },
+} as const;
+
+export function EventTable({ events, selectedEventId, onSelectEvent, visibleColumns }: EventTableProps) {
   const formatTime = (ts: string) => {
     const date = new Date(ts);
     return date.toLocaleTimeString();
@@ -33,26 +46,74 @@ export function EventTable({ events, selectedEventId, onSelectEvent }: EventTabl
     return path.length > maxLength ? path.substring(0, maxLength) + '...' : path;
   };
 
+  const renderCell = (columnKey: string, event: Event) => {
+    switch (columnKey) {
+      case 'time':
+        return <td key={columnKey}>{formatTime(event.ts)}</td>;
+      case 'phase':
+        return (
+          <td key={columnKey}>
+            <span className="event-phase-badge" data-phase={event.phase}>
+              {event.phase}
+            </span>
+          </td>
+        );
+      case 'method':
+        return <td key={columnKey}>{event.method || '-'}</td>;
+      case 'host':
+        return <td key={columnKey}>{event.host || '-'}</td>;
+      case 'path':
+        return <td key={columnKey} className="event-table-path">{shortenPath(event.path)}</td>;
+      case 'status':
+        return (
+          <td key={columnKey}>
+            <span
+              className="event-status-badge"
+              style={{ color: getStatusColor(event.status, event.phase) }}
+            >
+              {event.status || (event.phase === 'error' ? 'Error' : '-')}
+            </span>
+          </td>
+        );
+      case 'duration':
+        return <td key={columnKey}>{formatDuration(event.duration_ms)}</td>;
+      case 'service':
+        return <td key={columnKey}>{event.service || '-'}</td>;
+      case 'error':
+        return (
+          <td key={columnKey} className="event-table-error">
+            {event.error_message ? (
+              <span title={event.error_message}>
+                {event.error_message.length > 30
+                  ? event.error_message.substring(0, 30) + '...'
+                  : event.error_message}
+              </span>
+            ) : (
+              '-'
+            )}
+          </td>
+        );
+      default:
+        return null;
+    }
+  };
+
+  const columnCount = visibleColumns.length || 9;
+
   return (
     <div className="event-table-container">
       <table className="event-table">
         <thead>
           <tr>
-            <th>Time</th>
-            <th>Phase</th>
-            <th>Method</th>
-            <th>Host</th>
-            <th>Path</th>
-            <th>Status</th>
-            <th>Duration</th>
-            <th>Service</th>
-            <th>Error</th>
+            {visibleColumns.map((col) => (
+              <th key={col}>{COLUMN_DEFINITIONS[col as keyof typeof COLUMN_DEFINITIONS]?.label || col}</th>
+            ))}
           </tr>
         </thead>
         <tbody>
           {events.length === 0 ? (
             <tr>
-              <td colSpan={9} className="event-table-empty">
+              <td colSpan={columnCount} className="event-table-empty">
                 No events found
               </td>
             </tr>
@@ -63,36 +124,7 @@ export function EventTable({ events, selectedEventId, onSelectEvent }: EventTabl
                 className={selectedEventId === event.id ? 'event-table-row-selected' : 'event-table-row'}
                 onClick={() => onSelectEvent(event)}
               >
-                <td>{formatTime(event.ts)}</td>
-                <td>
-                  <span className="event-phase-badge" data-phase={event.phase}>
-                    {event.phase}
-                  </span>
-                </td>
-                <td>{event.method || '-'}</td>
-                <td>{event.host || '-'}</td>
-                <td className="event-table-path">{shortenPath(event.path)}</td>
-                <td>
-                  <span
-                    className="event-status-badge"
-                    style={{ color: getStatusColor(event.status, event.phase) }}
-                  >
-                    {event.status || (event.phase === 'error' ? 'Error' : '-')}
-                  </span>
-                </td>
-                <td>{formatDuration(event.duration_ms)}</td>
-                <td>{event.service || '-'}</td>
-                <td className="event-table-error">
-                  {event.error_message ? (
-                    <span title={event.error_message}>
-                      {event.error_message.length > 30
-                        ? event.error_message.substring(0, 30) + '...'
-                        : event.error_message}
-                    </span>
-                  ) : (
-                    '-'
-                  )}
-                </td>
+                {visibleColumns.map((col) => renderCell(col, event))}
               </tr>
             ))
           )}

@@ -1,9 +1,10 @@
-import { app, BrowserWindow, ipcMain, dialog } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, screen } from 'electron';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { existsSync, mkdirSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { startServer } from './server/index.js';
 import { getDbPath, setDbPath } from './server/db.js';
+import { setErrorNotifier } from './server/routes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -12,6 +13,24 @@ let mainWindow: BrowserWindow | null = null;
 let server: any = null;
 
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
+
+// Set app name early (before whenReady) - this affects the dock name on macOS
+// Note: In dev mode on macOS, the dock may still show "Electron" because Electron
+// runs from its own bundle. The icon should work though.
+app.setName('Network Sniffer');
+
+// For macOS, also try to set the about panel which can help with the name
+if (process.platform === 'darwin') {
+  app.setAboutPanelOptions({
+    applicationName: 'Network Sniffer',
+    applicationVersion: app.getVersion(),
+  });
+  
+  // Force dock icon refresh by setting it early
+  app.whenReady().then(() => {
+    // This will be set again in createWindow, but setting it early can help
+  });
+}
 
 function getDbPathForApp(): string {
   const userDataPath = app.getPath('userData');
@@ -26,28 +45,292 @@ function getDbPathForApp(): string {
   return path.join(dbDir, 'monitor.db');
 }
 
-function createWindow() {
-  const iconPath = isDev
-    ? path.join(__dirname, '../../assets/icons/icon.png')
-    : path.join(process.resourcesPath, 'assets/icons/icon.png');
+interface WindowState {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  displayBounds: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
+}
 
-  mainWindow = new BrowserWindow({
-    width: 1400,
-    height: 900,
-    icon: iconPath,
+function getWindowStatePath(): string {
+  const userDataPath = app.getPath('userData');
+  return path.join(userDataPath, 'window-state.json');
+}
+
+function loadWindowState(): WindowState | null {
+  const statePath = getWindowStatePath();
+  try {
+    if (existsSync(statePath)) {
+      const data = readFileSync(statePath, 'utf-8');
+      const state = JSON.parse(data) as WindowState;
+      
+      // Validate that the saved display still exists
+      const displays = screen.getAllDisplays();
+      const displayExists = displays.some(display => 
+        display.bounds.x === state.displayBounds.x &&
+        display.bounds.y === state.displayBounds.y &&
+        display.bounds.width === state.displayBounds.width &&
+        display.bounds.height === state.displayBounds.height
+      );
+      
+      if (displayExists) {
+        return state;
+      }
+    }
+  } catch (error) {
+    console.error('Failed to load window state:', error);
+  }
+  return null;
+}
+
+function saveWindowState(window: BrowserWindow) {
+  try {
+    const bounds = window.getBounds();
+    const display = screen.getDisplayMatching(bounds);
+    
+    const state: WindowState = {
+      x: bounds.x,
+      y: bounds.y,
+      width: bounds.width,
+      height: bounds.height,
+      displayBounds: display.bounds,
+    };
+    
+    const statePath = getWindowStatePath();
+    writeFileSync(statePath, JSON.stringify(state, null, 2), 'utf-8');
+  } catch (error) {
+    console.error('Failed to save window state:', error);
+  }
+}
+
+interface AppSettings {
+  errorNotifications: boolean;
+}
+
+function getSettingsPath(): string {
+  const userDataPath = app.getPath('userData');
+  return path.join(userDataPath, 'settings.json');
+}
+
+function loadSettings(): AppSettings {
+  const settingsPath = getSettingsPath();
+  try {
+    if (existsSync(settingsPath)) {
+      const data = readFileSync(settingsPath, 'utf-8');
+      return JSON.parse(data) as AppSettings;
+    }
+  } catch (error) {
+    console.error('Failed to load settings:', error);
+  }
+  // Default settings
+  return {
+    errorNotifications: true, // Default to enabled
+  };
+}
+
+function saveSettings(settings: AppSettings) {
+  try {
+    const settingsPath = getSettingsPath();
+    writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf-8');
+  } catch (error) {
+    console.error('Failed to save settings:', error);
+  }
+}
+
+let appSettings = loadSettings();
+let errorCount = 0;
+
+function isErrorEvent(event: any): boolean {
+  // Check if event is an error
+  if (event.phase === 'error') {
+    return true;
+  }
+  // Check if status code indicates error (4xx or 5xx)
+  if (event.status && (event.status >= 400)) {
+    return true;
+  }
+  // Check if there's an error message
+  if (event.error_message) {
+    return true;
+  }
+  return false;
+}
+
+export function notifyErrorEvent(event: any) {
+  if (!isErrorEvent(event)) {
+    return;
+  }
+
+  if (!appSettings.errorNotifications) {
+    return;
+  }
+
+  errorCount++;
+  
+  // Update badge
+  if (process.platform === 'darwin' && app.dock) {
+    app.dock.setBadge(errorCount > 0 ? errorCount.toString() : '');
+  }
+
+  // Bounce dock icon (macOS only)
+  if (process.platform === 'darwin' && app.dock) {
+    app.dock.bounce('critical');
+  }
+}
+
+export function clearErrorCount() {
+  errorCount = 0;
+  if (process.platform === 'darwin' && app.dock) {
+    app.dock.setBadge('');
+  }
+}
+
+function createWindow() {
+  // Get icon path - in dev mode, __dirname is dist-electron, so go up to project root
+  let iconPath: string = '';
+  let icnsPath: string = '';
+  
+  if (isDev) {
+    // In dev: __dirname is dist-electron/electron, so:
+    // - Try dist-electron/assets/icons (if copied by build script)
+    // - Fallback to project root (apps/desktop/assets/icons)
+    const distAssetsPath = path.join(__dirname, '../assets/icons/icon.icns');
+    const projectRootPath = path.join(__dirname, '../../assets/icons/icon.icns');
+    
+    if (existsSync(distAssetsPath)) {
+      icnsPath = distAssetsPath;
+      iconPath = path.join(__dirname, '../assets/icons/icon.png');
+      console.log('✓ Using icon from dist-electron/assets:', icnsPath);
+    } else if (existsSync(projectRootPath)) {
+      icnsPath = projectRootPath;
+      iconPath = path.join(__dirname, '../../assets/icons/icon.png');
+      console.log('✓ Using icon from project root:', icnsPath);
+    } else {
+      console.error('✗ Icon not found in either location:');
+      console.error('  - Tried:', distAssetsPath);
+      console.error('  - Tried:', projectRootPath);
+      console.error('  - __dirname:', __dirname);
+      // Set fallback empty paths to avoid TypeScript errors
+      iconPath = '';
+      icnsPath = '';
+    }
+  } else {
+    iconPath = path.join(process.resourcesPath, 'assets/icons/icon.png');
+    icnsPath = path.join(process.resourcesPath, 'assets/icons/icon.icns');
+  }
+
+  // Set dock icon for macOS (must be .icns file)
+  if (process.platform === 'darwin' && app.dock) {
+    if (icnsPath && existsSync(icnsPath)) {
+      try {
+        app.dock.setIcon(icnsPath);
+        console.log('✓ Dock icon set successfully from:', icnsPath);
+      } catch (error) {
+        console.error('Failed to set dock icon:', error);
+      }
+    } else {
+      console.warn('⚠ Dock icon not found. Tried:', icnsPath);
+      // Try alternative paths
+      const altPaths = [
+        path.join(process.cwd(), 'assets/icons/icon.icns'),
+        path.join(__dirname, '../../assets/icons/icon.icns'),
+      ];
+      for (const altPath of altPaths) {
+        if (existsSync(altPath)) {
+          try {
+            app.dock.setIcon(altPath);
+            console.log('✓ Dock icon set from alternative path:', altPath);
+            break;
+          } catch (error) {
+            console.error('Failed to set icon from:', altPath, error);
+          }
+        }
+      }
+    }
+  }
+
+  // Load saved window state
+  const savedState = loadWindowState();
+  const primaryDisplay = screen.getPrimaryDisplay();
+  const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize;
+  
+  // Default window bounds
+  const defaultWidth = 1400;
+  const defaultHeight = 900;
+  const defaultX = Math.floor((screenWidth - defaultWidth) / 2);
+  const defaultY = Math.floor((screenHeight - defaultHeight) / 2);
+  
+  // Use saved state if available and valid, otherwise use defaults
+  const windowOptions: Electron.BrowserWindowConstructorOptions = {
+    width: savedState?.width || defaultWidth,
+    height: savedState?.height || defaultHeight,
+    x: savedState?.x ?? defaultX,
+    y: savedState?.y ?? defaultY,
+    ...(iconPath ? { icon: iconPath } : {}),
+    title: 'Network Sniffer',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
     },
-  });
+  };
+
+  mainWindow = new BrowserWindow(windowOptions);
+  
+  // Ensure window is visible on a screen
+  if (savedState) {
+    const displays = screen.getAllDisplays();
+    const isVisible = displays.some(display => {
+      const { x, y, width, height } = display.bounds;
+      return (
+        savedState.x >= x &&
+        savedState.y >= y &&
+        savedState.x + savedState.width <= x + width &&
+        savedState.y + savedState.height <= y + height
+      );
+    });
+    
+    if (!isVisible) {
+      // Window would be off-screen, center it on primary display
+      mainWindow.setPosition(defaultX, defaultY);
+    }
+  }
 
   if (isDev) {
     mainWindow.loadURL('http://localhost:5173');
-    mainWindow.webContents.openDevTools();
+    // DevTools closed by default - use Console button to open
   } else {
     mainWindow.loadFile(path.join(__dirname, '../../dist/index.html'));
   }
+
+  // Save window state on move/resize
+  let saveStateTimeout: NodeJS.Timeout | null = null;
+  const debouncedSaveState = () => {
+    if (saveStateTimeout) {
+      clearTimeout(saveStateTimeout);
+    }
+    saveStateTimeout = setTimeout(() => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        saveWindowState(mainWindow);
+      }
+    }, 500); // Debounce to avoid excessive writes
+  };
+
+  mainWindow.on('move', debouncedSaveState);
+  mainWindow.on('resize', debouncedSaveState);
+  
+  // Save state when window is closed
+  mainWindow.on('close', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      saveWindowState(mainWindow);
+    }
+  });
 
   mainWindow.on('closed', () => {
     mainWindow = null;
@@ -55,12 +338,12 @@ function createWindow() {
 }
 
 app.whenReady().then(async () => {
-  // Set app name for dock/menu bar
-  app.setName('Network Sniffer');
-  
   // Set database path before starting server
   const dbPath = getDbPathForApp();
   setDbPath(dbPath);
+
+  // Set up error notification callback
+  setErrorNotifier(notifyErrorEvent);
 
   try {
     server = await startServer();
@@ -120,5 +403,38 @@ ipcMain.handle('export-event', async (_, data: any) => {
 
 ipcMain.handle('get-db-path', () => {
   return getDbPath();
+});
+
+ipcMain.handle('toggle-devtools', () => {
+  if (mainWindow) {
+    if (mainWindow.webContents.isDevToolsOpened()) {
+      mainWindow.webContents.closeDevTools();
+    } else {
+      mainWindow.webContents.openDevTools();
+    }
+    return { success: true };
+  }
+  return { success: false };
+});
+
+ipcMain.handle('get-settings', () => {
+  return appSettings;
+});
+
+ipcMain.handle('update-settings', (_, newSettings: Partial<AppSettings>) => {
+  appSettings = { ...appSettings, ...newSettings };
+  saveSettings(appSettings);
+  
+  // Clear badge if notifications are disabled
+  if (!appSettings.errorNotifications) {
+    clearErrorCount();
+  }
+  
+  return appSettings;
+});
+
+ipcMain.handle('clear-error-badge', () => {
+  clearErrorCount();
+  return { success: true };
 });
 

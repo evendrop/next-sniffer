@@ -3,6 +3,14 @@ import { getDb } from './db.js';
 import { normalizeEvent, IncomingEvent } from './events.js';
 import { broadcastEvent } from './realtime.js';
 
+// Import error notification function from main process
+// This will be set by the main process
+let notifyErrorEventFn: ((event: any) => void) | null = null;
+
+export function setErrorNotifier(fn: (event: any) => void) {
+  notifyErrorEventFn = fn;
+}
+
 export function setupRoutes(app: Express) {
   // Health check
   app.get('/health', (req: Request, res: Response) => {
@@ -66,6 +74,11 @@ export function setupRoutes(app: Express) {
       delete (broadcastData as any).response_body_json;
 
       broadcastEvent(broadcastData);
+
+      // Notify main process of error events
+      if (notifyErrorEventFn && isErrorEvent(broadcastData)) {
+        notifyErrorEventFn(broadcastData);
+      }
 
       res.json({ id: insertedId, success: true });
     } catch (error: any) {
@@ -246,5 +259,21 @@ export function setupRoutes(app: Express) {
       res.status(500).json({ error: error.message });
     }
   });
+}
+
+function isErrorEvent(event: any): boolean {
+  // Check if event is an error
+  if (event.phase === 'error') {
+    return true;
+  }
+  // Check if status code indicates error (4xx or 5xx)
+  if (event.status && (event.status >= 400)) {
+    return true;
+  }
+  // Check if there's an error message
+  if (event.error_message) {
+    return true;
+  }
+  return false;
 }
 

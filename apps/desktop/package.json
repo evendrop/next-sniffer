@@ -5,11 +5,12 @@
   "main": "dist-electron/main.js",
   "type": "module",
   "scripts": {
-    "dev": "tsc && tsc -p tsconfig.preload.json && concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
-    "build": "tsc && tsc -p tsconfig.preload.json && vite build",
+    "dev": "tsc && tsc -p tsconfig.preload.json && cp -r assets dist-electron/ 2>/dev/null || true && concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
+    "build": "tsc && tsc -p tsconfig.preload.json && cp -r assets dist-electron/ && vite build",
     "dist": "yarn build && electron-builder",
     "postinstall": "electron-builder install-app-deps",
-    "test:emit": "tsx scripts/post-sample-event.ts"
+    "test:emit": "tsx scripts/post-sample-event.ts",
+    "test:error": "tsx scripts/post-error-event.ts"
   },
   "keywords": [
     "electron",
@@ -20,6 +21,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "@tabler/icons-react": "^3.36.0",
     "better-sqlite3": "^11.7.0",
     "cors": "^2.8.5",
     "express": "^4.21.1"

@@ -1,13 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { EventFilters } from '../lib/types';
 import { fetchHosts } from '../lib/api';
+import { Multiselect } from './Multiselect';
 
 interface FiltersProps {
   filters: EventFilters;
   onFiltersChange: (filters: EventFilters) => void;
+  visibleColumns: string[];
+  onVisibleColumnsChange: (columns: string[]) => void;
 }
 
-export function Filters({ filters, onFiltersChange }: FiltersProps) {
+export function Filters({ filters, onFiltersChange, visibleColumns, onVisibleColumnsChange }: FiltersProps) {
   const [hosts, setHosts] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -22,17 +25,10 @@ export function Filters({ filters, onFiltersChange }: FiltersProps) {
     onFiltersChange({ ...filters, [key]: value });
   };
 
-  const toggleMethod = (method: string) => {
-    const methods = filters.methods.includes(method)
-      ? filters.methods.filter((m) => m !== method)
-      : [...filters.methods, method];
-    updateFilter('methods', methods);
-  };
-
   return (
     <div className="filters">
       <div className="filters-row">
-        <div className="filter-group">
+        <div className="filter-group filter-group-search">
           <label>Search</label>
           <input
             type="text"
@@ -43,23 +39,29 @@ export function Filters({ filters, onFiltersChange }: FiltersProps) {
           />
         </div>
 
-        <div className="filter-group">
-          <label>Method</label>
-          <div className="filter-checkboxes">
-            {['GET', 'POST', 'PUT', 'DELETE', 'PATCH'].map((method) => (
-              <label key={method} className="filter-checkbox">
-                <input
-                  type="checkbox"
-                  checked={filters.methods.includes(method)}
-                  onChange={() => toggleMethod(method)}
-                />
-                {method}
-              </label>
-            ))}
-          </div>
+        <div className="filter-group filter-group-right">
+          <label>Columns</label>
+          <Multiselect
+            options={['time', 'phase', 'method', 'host', 'path', 'status', 'duration', 'service', 'error']}
+            selected={visibleColumns}
+            onChange={onVisibleColumnsChange}
+            placeholder="All columns"
+            className="filter-multiselect"
+          />
         </div>
 
-        <div className="filter-group">
+        <div className="filter-group filter-group-right">
+          <label>Method</label>
+          <Multiselect
+            options={['GET', 'POST', 'PUT', 'DELETE', 'PATCH']}
+            selected={filters.methods}
+            onChange={(methods) => updateFilter('methods', methods)}
+            placeholder="All methods"
+            className="filter-multiselect"
+          />
+        </div>
+
+        <div className="filter-group filter-group-right">
           <label>Status</label>
           <select
             value={filters.statusCategory}
@@ -75,7 +77,7 @@ export function Filters({ filters, onFiltersChange }: FiltersProps) {
           </select>
         </div>
 
-        <div className="filter-group">
+        <div className="filter-group filter-group-right">
           <label>Phase</label>
           <select
             value={filters.phase}
@@ -89,7 +91,7 @@ export function Filters({ filters, onFiltersChange }: FiltersProps) {
           </select>
         </div>
 
-        <div className="filter-group">
+        <div className="filter-group filter-group-right">
           <label>Host</label>
           <select
             value={filters.host}
@@ -106,7 +108,7 @@ export function Filters({ filters, onFiltersChange }: FiltersProps) {
           </select>
         </div>
 
-        <div className="filter-group">
+        <div className="filter-group filter-group-right">
           <label>Time Range</label>
           <select
             value={filters.timeRange}

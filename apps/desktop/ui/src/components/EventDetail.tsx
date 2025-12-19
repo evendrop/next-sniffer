@@ -5,9 +5,10 @@ import { generateCurlCommand } from '../lib/api';
 
 interface EventDetailProps {
   event: Event | null;
+  onShowToast?: (message: string, type?: 'success' | 'error' | 'info') => void;
 }
 
-export function EventDetail({ event }: EventDetailProps) {
+export function EventDetail({ event, onShowToast }: EventDetailProps) {
   const [activeTab, setActiveTab] = useState<'headers' | 'request' | 'response' | 'raw'>('headers');
 
   if (!event) {
@@ -30,9 +31,13 @@ export function EventDetail({ event }: EventDetailProps) {
   };
 
   const handleCopyCurl = async () => {
-    const curl = generateCurlCommand(event);
-    await navigator.clipboard.writeText(curl);
-    alert('cURL command copied to clipboard!');
+    try {
+      const curl = generateCurlCommand(event);
+      await navigator.clipboard.writeText(curl);
+      onShowToast?.('cURL command copied to clipboard!', 'success');
+    } catch (error) {
+      onShowToast?.('Failed to copy cURL command', 'error');
+    }
   };
 
   return (
