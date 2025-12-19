@@ -340,7 +340,46 @@ function createWindow() {
     mainWindow.loadURL('http://localhost:5173');
     // DevTools closed by default - use Console button to open
   } else {
-    mainWindow.loadFile(path.join(__dirname, '../../dist/index.html'));
+    // In production, use app.getAppPath() which correctly resolves
+    // to the app.asar path or unpacked app directory
+    const appPath = app.getAppPath();
+    const htmlPath = path.join(appPath, 'dist', 'index.html');
+    
+    console.log('Production mode - Loading HTML:');
+    console.log('  app.getAppPath():', appPath);
+    console.log('  HTML path:', htmlPath);
+    console.log('  File exists:', existsSync(htmlPath));
+    
+    if (existsSync(htmlPath)) {
+      mainWindow.loadFile(htmlPath);
+    } else {
+      // Additional fallback: try relative to __dirname
+      const fallbackPath = path.join(__dirname, '../dist/index.html');
+      console.log('  Trying fallback:', fallbackPath);
+      console.log('  Fallback exists:', existsSync(fallbackPath));
+      
+      if (existsSync(fallbackPath)) {
+        mainWindow.loadFile(fallbackPath);
+      } else {
+        // Last resort: show error page
+        const errorHtml = `
+          <!DOCTYPE html>
+          <html>
+            <head><title>Error - NextJS Sniffer</title></head>
+            <body style="font-family: system-ui; padding: 40px; text-align: center;">
+              <h1>⚠️ Could not load application</h1>
+              <p>The index.html file could not be found.</p>
+              <p style="color: #666; font-size: 12px; margin-top: 20px;">
+                App path: ${appPath}<br>
+                Tried: ${htmlPath}<br>
+                Fallback: ${fallbackPath}
+              </p>
+            </body>
+          </html>
+        `;
+        mainWindow.loadURL(`data:text/html,${encodeURIComponent(errorHtml)}`);
+      }
+    }
   }
 
   // Save window state on move/resize
