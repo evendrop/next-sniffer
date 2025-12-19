@@ -8,4 +8,14 @@ release/
 *.db-journal
 .vscode/
 .idea/
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+*.secret
+setup-ssh-keychain.sh
 
